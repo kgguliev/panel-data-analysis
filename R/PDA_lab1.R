@@ -8,6 +8,15 @@ t.test(a)
 ## The coin problem ##
 
 # define the distribution of the number of tails under the null hypothesis
+
+# dbinom syntax
+# dbinom(x,           # X-axis values (x = 0, 1, 2, ..., n)
+#        size,        # Number of trials (n > = 0)
+#        prob,        # The probability of success on each trial
+#        log = FALSE) # If TRUE, probabilities are given as log
+
+dbinom(4, 10, 0.5) # the probability of getting 4 successes out of 10 is 0.20
+
 data <- data.frame(tails = 0:10, prob = dbinom(0:10, 10, 0.5))
 data
 
