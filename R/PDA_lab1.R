@@ -52,3 +52,5 @@ ggplot(data, aes(tails, prob, fill = region)) +
 
 pvalue <- dbinom(8, 10, 0.5) + dbinom(9, 10, 0.5) + dbinom(10, 10, 0.5)
 pvalue
+
+# We cannot reject our null hypothesis => our coin is fair.
