@@ -1,0 +1,187 @@
+---
+title: 'Panel Data Analysis: Home Assignment 1'
+subtitle: "Comparative Social Research"
+author: "Kirill Gasanovich Guliev"
+date: "25 Feb 2022"
+output: word_document
+---
+
+```{r setup}
+
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+
+path  <- "C:/Users/Кирилл/Desktop/CSR2023/panel_data/panel-data-analysis/"
+
+```
+
+
+```{r packages, echo = TRUE}
+
+library(haven)
+library(tidyverse)
+library(margins)
+library(psych)
+
+```
+
+# Problem 1. Load and subset data. Wave = 3
+
+```{r loading data, echo = TRUE}
+
+wvs_data3 <- read_dta(paste0(path, "data/soc_hw1.dta")) %>% 
+  filter(wave == 3) %>% 
+  mutate(index = as.character(index),
+         wave = as.character(wave),
+         sex = as.factor(sex),
+         emp = as.factor(emp))
+
+```
+
+# Problem 2. Descriptive statistics
+
+## Report descriptive statistics of all the variables
+
+```{r descriptive stats, echo = TRUE}
+
+summary(wvs_data3)
+
+```
+
+We see that in our filtered dataset we have 76'187 observations. We have 39'542 females and 36'588 males in our sample; there also 57 missing values concerning the question on respondent's sex. The minimum age of the respondent is 15, the maximum is 95. The mean age in the sample is 40.99; 177 respondent's have a missing value in their age. 40'458 respondents from the sample are employed, 31'830 are not employed. Variable on employment has the greatest number of missing values across the wave - 3'899. 
+
+The mean value of life satisfaction (`satis` variable) is 6.338. The median is 7 - which means that 50% of the sample estimate their life satisfaction above this point, and 50% - below. The financial satisfaction seems to be the most balanced variable - a half of sample estimated it above 5/10, and another half - below. 
+
+The maximum number of children in a family is 8, minimum is 0; 3'754 values are missing. 50% of the sample have more than 2 children. 
+
+```{r countries, echo = TRUE}
+
+table(wvs_data3$country, useNA = "ifany")
+
+```
+
+There are 22'233 unlabeled observations in our Wave 3 of the WVS dataset. 
+
+```{r distribution, echo = TRUE}
+# Distribution of number of children across countries
+table(wvs_data3$country, wvs_data3$chldr, useNA = "ifany")
+
+```
+
+Colombia has the most quantity of missing values concerning the variable on the number of children in the family - 3'008. 
+
+```{r satisfaction, echo = TRUE}
+# Distribution of life satisfaction estimates across countries
+table(wvs_data3$country, wvs_data3$satis, useNA = "ifany")
+
+```
+
+Respondents from Pakistan and South Korea do not have values on life satisfaction. 
+
+```{r financial satisfaction, echo = TRUE}
+# Distribution of financial satisfaction across countries
+table(wvs_data3$country, wvs_data3$fsatis, useNA = "ifany")
+
+```
+
+Colombia has the most quantity of missing values - 3'011.
+
+## Explain why these preliminary statistics are especially important before running regression models with interaction terms
+
+It is important to do exploratory analysis of the data before running linear models with interactions to see, what variables are balanced (have approximately the same proportions and normally distributed), where to expect outliers (which can influence the effect of independent variables on a dependent). Moreover, we need to bind to linear models assumptions one of which is normality of distribution of the residuals. It is more likely that residuals will be normally distributed if we have normal distribution of our data. 
+
+# Problem 3. Linear Models
+
+## Divide dataset by `fsatis` and plot the relationship
+
+```{r division and plots, echo = TRUE}
+
+divided_data <- wvs_data3 %>% 
+  drop_na() %>% 
+  mutate(fin_satis_binary = ifelse(fsatis >= 6, "satisfied", "unsatisfied"))
+
+head(divided_data, 5)
+
+ggplot(divided_data, aes(chldr, satis, color = fin_satis_binary)) +
+  geom_smooth(method = "lm") +
+  xlab("Number of children") +
+  ylab("Life satisfaction") +
+  ggtitle("Life Satisfaction ~ # of Children\nacross different groups") +
+  theme_minimal()
+
+```
+
+On the basis of the visualization, we can observe that among those who are financially satisfied the initial level of life satisfaction is much higher than among those who are not financially satisfied. Moreover, we see a more pronounced positive trend with of life satisfaction the increase in the number of children among those who are _financially satisfied_ than among those who are not. 
+
+## Run a regression model (or a set of regression models) that tests whether the relationship between life satisfaction and the number of children is different
+
+```{r regressions, echo = TRUE}
+#turn off scientific notation
+options(scipen = 999)
+
+for_lm <- divided_data %>% 
+  split(.$fin_satis_binary)
+
+class(for_lm) # list with two dataframes for two groups
+
+fit_satis <- lm(satis ~ chldr + age + sex + emp, data = for_lm[["satisfied"]])
+fit_unsatis <- lm(satis ~ chldr + age + sex + emp, data = for_lm[["unsatisfied"]])
+
+summary(fit_satis); summary(fit_unsatis)
+
+```
+
+**NB! The remark `p-value < 0.05` in the paranthesis means that the predictor is statistically significant** 
+
+For the sub-sample of those who are financially satisfied, we observe that the average level of life satisfaction is 7.77 if there is no children in the family and all else equal. An increase in the number of children by 1 child, the average level of life satisfaction increases by 0.05 units (p-value < 0.05). An increase in the age will decrease the level of life satisfaction by 0.0005 on average (p-value < 0.05). Being a male (and all else equal) will state that the average level of life satisfaction is 7.74 (`Intercept - sex1`); and being a female will state that the average level of life satisfaction is 7.77. The variable for sex is _statistically insignificant_. Employment is statistically significant in terms of level of life satisfaction: having a job guarantee that a respondent has 7.78 units of life satisfaction on average. However, the R-squared (and adjusted R-squared) are very low - 0.2%.
+
+For the sub-sample of those who are _not_ financially satisfied, we see that the average level of life satisfaction equals to 5.62 if there is no children in a family and all else equal. In addition, the increase of the number of children by 1 child will increase the average level of life satisfaction by 0.09 units (p-value < 0.05). The increase in age by 1 year will decrease the average level of life satisfaction by 0.02 units (p-value < 0.05). Being a male (and all else equal) guarantee the average level of 5.58 units; females are much satisfied with their lives on average - 5.62. However, sex is _statistically insignificant_ predictor. Having a job will statistically significant guarantee the average level of life satisfaction of 5.72 (p-value < 0.05). Adjusted R-squared is low - 1.8% - but, nevertheless, higher than in the other sub-sample model.
+
+# Problem 4. Run a regression model that tests the moderation effect of fsatis on the relationship between life satifaction and the number of children
+
+```{r interactions, echo = TRUE}
+
+fit_interaction <- lm(satis ~ chldr + fin_satis_binary + chldr:fin_satis_binary + age + sex + emp, data = divided_data)
+
+summary(fit_interaction)
+
+```
+
+The average level of life satisfaction when there are not children and all else equal is 8.10. The increase in children by 1 child will increase the average level of life satisfaction by 0.10 (p-value < 0.05) when a person is financially satisfied and all else equal. The increase in age by 1 year will decrease the average level of life satisfaction by 0.011 units (p-value < 0.05). Sex is statistically insignificant in the model. Being unsatisfied with the financial conditions (and all else equal) predicts the average level of life satisfaction on 5.3 (p-value < 0.05).
+
+Being employed (and all else equal) increases the average level of life satisfaction by 8.17 units. The interaction with financial satisfaction (p-value < 0.05) can be interpreted as follows:
+
+`d(Life Satisfaction) / d(Number of children) = (beta_1 * Number of Children)' + (beta_6 * Interaction)'`
+
+And we get: 
+
+`d(Life Satisfaction) / d(Number of children) = 0.102740 + (-0.0417497) = 0.0609903`
+
+This value means that the increase in number of children when you are unsatisfied with your financial conditions (and all else equal) will increase the average level of life satisfaction by 0.06 units.
+
+# Problem 5. Explore how the marginal effect of the number of children and its significance depends on the values of satisfaction with the household financial situation
+
+```{r marginal effects, echo = TRUE}
+
+me <- margins(fit_interaction)
+
+summary(me)
+
+```
+
+The average marginal effect (further - AME) for age equals -0.12; for our main predictor - 0.08; for employment variable - 0.072; for being in the group of financially unsatisfied - -2.8774. These mentioned predictors are statistically significant (p-value < 0.05). 
+
+The AME for sex (male) is -0.0295 but it is statistically insignificant (p-value > 0.05). 
+
+```{r plotting of me, echo = TRUE}
+
+ggplot(me, aes(x = chldr)) + 
+  geom_line(aes(y = dydx_fin_satis_binaryunsatisfied)) +
+  geom_line(aes(y = dydx_fin_satis_binaryunsatisfied + 1.96 * sqrt(Var_dydx_fin_satis_binaryunsatisfied)), linetype = 2) +
+  geom_line(aes(y = dydx_fin_satis_binaryunsatisfied - 1.96 * sqrt(Var_dydx_fin_satis_binaryunsatisfied)), linetype = 2) +
+  geom_hline(yintercept = 0) +
+  ggtitle("Conditional effect\nchldr:finsatis") +
+  xlab("Number of children") + ylab("Marginal effect of financial satisfaction")
+
+```
+
+We observe that our line does not cross the `y = 0`. Also, we see that confidence interval for our AME is very narrow. It gives an insight that our predictor of number of children affects the life satisfaction when interacted with financial satisfaction as a moderator.
